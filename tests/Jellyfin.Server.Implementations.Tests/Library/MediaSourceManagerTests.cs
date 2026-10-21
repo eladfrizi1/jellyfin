@@ -325,5 +325,35 @@ namespace Jellyfin.Server.Implementations.Tests.Library
 
             return (primary, alt1, alt2);
         }
+
+        [Fact]
+        public void SetDefaultAudioAndSubtitleStreamIndices_LanguageNameWithDash_MatchesPreference()
+        {
+            // The display name of Greek contains a dash, which must not be mistaken for a regional code like pt-br
+            var greek = new CultureDto("Greek, Modern (1453-)", "Greek, Modern (1453-)", "el", new[] { "ell", "gre" });
+            _mockLocalizationManager.Setup(m => m.FindLanguageInfo("ell")).Returns(greek);
+
+            var mediaInfo = new MediaSourceInfo
+            {
+                MediaStreams = new MediaStream[]
+                {
+                    new() { Index = 0, Type = MediaStreamType.Video, IsDefault = true },
+                    new() { Index = 1, Type = MediaStreamType.Audio, Language = "eng", IsDefault = true },
+                    new() { Index = 2, Type = MediaStreamType.Audio, Language = "ell", IsDefault = false },
+                    new() { Index = 3, Type = MediaStreamType.Subtitle, Language = "eng", IsDefault = false, IsForced = false },
+                    new() { Index = 4, Type = MediaStreamType.Subtitle, Language = "ell", IsDefault = false, IsForced = false }
+                }
+            };
+
+            _user.AudioLanguagePreference = "ell";
+            _user.PlayDefaultAudioTrack = false;
+            _user.SubtitleLanguagePreference = "ell";
+            _user.SubtitleMode = SubtitlePlaybackMode.Always;
+
+            _mediaSourceManager.SetDefaultAudioAndSubtitleStreamIndices(_item, mediaInfo, _user);
+
+            Assert.Equal(2, mediaInfo.DefaultAudioStreamIndex);
+            Assert.Equal(4, mediaInfo.DefaultSubtitleStreamIndex);
+        }
     }
 }
